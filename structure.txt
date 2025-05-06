@@ -1,0 +1,27 @@
+lunitool/
+├── core/                   # Kernfunktionalität
+│   ├── common.sh           # Gemeinsame Funktionen (Logging, UI, etc.)
+│   ├── setup.sh            # System-Installation
+│   ├── crypto.sh           # Verschlüsselungsfunktionen
+│   └── system.sh           # Systemkonfiguration
+│
+├── tools/                  # Werkzeuge und Dienstprogramme
+│   ├── backup.sh           # Sicherungen
+│   ├── recovery.sh         # Wiederherstellung
+│   ├── iso_creator.sh      # ISO-Erstellung
+│   └── key_manager.sh      # Schlüssel-Manager
+│
+├── scripts/                # Herunterladbare Skripte
+│   ├── post_install.sh     # System-Einrichtung
+│   ├── first_login.sh      # Erstes-Login-Setup
+│   └── updates.sh          # Update-Funktionen
+│
+├── configs/                # Konfigurationsvorlagen
+│   ├── bootloaders/        # GRUB/systemd-boot Konfigurationen
+│   └── desktop/            # Desktop-Umgebungs-Configs
+│
+├── resources/              # Statische Ressourcen
+│   ├── checksums/          # Prüfsummen für herunterladbare Inhalte
+│   └── templates/          # Vorlagen für Konfigurationsdateien
+│
+└── lunitool                # Hauptskript
