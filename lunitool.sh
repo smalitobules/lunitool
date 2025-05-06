@@ -1,27 +1,29 @@
 #!/bin/bash
 # lunitool - Linux Universal Tool
-# Hauptskript zur Steuerung der Umgebung mit dialog
+# Hauptskript zur Steuerung der Umgebung
 
-# Verzeichnisstruktur
+# Verzeichnisstruktur definieren
 LUNITOOL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CORE_DIR="${LUNITOOL_DIR}/core"
 TOOLS_DIR="${LUNITOOL_DIR}/tools"
 SCRIPTS_DIR="${LUNITOOL_DIR}/scripts"
 CONFIG_DIR="${LUNITOOL_DIR}/configs"
 RESOURCES_DIR="${LUNITOOL_DIR}/resources"
-LANG_DIR="${LUNITOOL_DIR}/core/languages"
+LANG_DIR="${CORE_DIR}/languages"
 
-# Lade gemeinsame Funktionen
-source "${CORE_DIR}/common.sh"
-
-# Standardsprache
+# Standardwerte
 CURRENT_LANG="de"
 KEYBOARD="de"
 
-# Prüfe, ob notwendige Verzeichnisse existieren
-if [ ! -d "$LANG_DIR" ]; then
-    mkdir -p "$LANG_DIR"
-fi
+# Pfade in Umgebungsvariablen exportieren, damit sie in eingebundenen Skripten verfügbar sind
+export LUNITOOL_DIR CORE_DIR TOOLS_DIR SCRIPTS_DIR CONFIG_DIR RESOURCES_DIR LANG_DIR
+
+# Prüfen und erstellen der erforderlichen Verzeichnisse
+mkdir -p "$CORE_DIR" "$TOOLS_DIR" "$SCRIPTS_DIR" "$CONFIG_DIR" "$RESOURCES_DIR" "$LANG_DIR"
+
+# Grundlegende Funktionen einbinden
+source "${CORE_DIR}/common.sh"
+source "${CORE_DIR}/ui.sh"
 
 # Lade Sprachdatei
 load_language() {
@@ -43,12 +45,17 @@ select_language() {
     local selection=$(ui_show_menu "$LANG_LANGUAGE_SELECT" "${options[@]}")
     
     # Prüfen, ob Benutzer abgebrochen hat
-    if [ $? -eq 0 ]; then
+    if [ $? -eq 0 ] && [ -n "$selection" ]; then
         CURRENT_LANG="$selection"
         
         # Sprachdatei laden
         load_language
+        
+        log_info "Sprache auf $CURRENT_LANG geändert"
+        return 0
     fi
+    
+    return 1
 }
 
 # Tastaturlayout-Dialog
@@ -59,7 +66,7 @@ select_keyboard() {
     local selection=$(ui_show_menu "$LANG_KEYBOARD_SELECT" "${options[@]}")
     
     # Prüfen, ob Benutzer abgebrochen hat
-    if [ $? -eq 0 ]; then
+    if [ $? -eq 0 ] && [ -n "$selection" ]; then
         KEYBOARD="$selection"
         
         # Tastaturlayout anwenden
@@ -68,62 +75,139 @@ select_keyboard() {
         elif command -v setxkbmap &>/dev/null; then
             setxkbmap "$KEYBOARD"
         fi
+        
+        log_info "Tastaturlayout auf $KEYBOARD geändert"
+        return 0
     fi
+    
+    return 1
 }
 
 # Hauptmenü
 main_menu() {
+    # Optionen für das Hauptmenü
     local options=(
         "install" "\Z4$LANG_INSTALL\Zn - $LANG_INSTALL_DESC" 
         "backup" "\Z4$LANG_BACKUP\Zn - $LANG_BACKUP_DESC" 
         "keys" "\Z4$LANG_KEYS\Zn - $LANG_KEYS_DESC"
     )
     
-    # Menü über UI-Bibliothek anzeigen
-    local selection=$(ui_show_main_menu "$LANG_MAIN_MENU" "${options[@]}")
+    local running=true
     
-    # Rückgabewert prüfen
-    if [ $? -ne 0 ]; then
-        # Zurück zur Sprachauswahl und dann wieder zum Hauptmenü
-        select_language
-        select_keyboard
-        main_menu
-        return
+    while $running; do
+        # Menü über UI-Bibliothek anzeigen
+        local selection=$(ui_show_main_menu "$LANG_MAIN_MENU" "${options[@]}")
+        local ret=$?
+        
+        # Rückgabewert prüfen
+        if [ $ret -ne 0 ]; then
+            # Zurück zur Sprachauswahl und Tastaturauswahl
+            log_debug "Zurück zur Grundkonfiguration"
+            select_language
+            select_keyboard
+            continue
+        fi
+        
+        # Je nach Auswahl das entsprechende Modul laden
+        case $selection in
+            "install")
+                # System-Installation
+                log_info "Starte Installations-Modul..."
+                if [ -f "${CORE_DIR}/setup.sh" ]; then
+                    source "${CORE_DIR}/setup.sh"
+                    start_installation
+                else
+                    ui_show_warning "$LANG_WARNING" "$LANG_MODULE_NOT_FOUND: setup.sh"
+                fi
+                ;;
+            "backup")
+                # Backup & Restore
+                log_info "Starte Backup-Modul..."
+                if [ -f "${TOOLS_DIR}/backup.sh" ]; then
+                    source "${TOOLS_DIR}/backup.sh"
+                    start_backup
+                else
+                    ui_show_warning "$LANG_WARNING" "$LANG_MODULE_NOT_FOUND: backup.sh"
+                fi
+                ;;
+            "keys")
+                # Schlüssel-Konfiguration
+                log_info "Starte Schlüsselkonfiguration..."
+                if [ -f "${TOOLS_DIR}/usb_creator.sh" ]; then
+                    source "${TOOLS_DIR}/usb_creator.sh"
+                    start_key_config
+                else
+                    ui_show_warning "$LANG_WARNING" "$LANG_MODULE_NOT_FOUND: usb_creator.sh"
+                fi
+                ;;
+            *)
+                # Unbekannte Auswahl
+                log_error "Unbekannte Hauptmenü-Auswahl: $selection"
+                ui_show_error "$LANG_ERROR" "$LANG_INVALID_SELECTION"
+                ;;
+        esac
+    done
+}
+
+# Signalbehandlung für Abbruch (STRG+C)
+setup_signal_handling() {
+    trap 'handle_exit' SIGINT SIGTERM EXIT
+}
+
+# Behandlung von Programmende und Abbruch
+handle_exit() {
+    # Entferne den Signal-Handler, um endlose Schleifen zu vermeiden
+    trap - SIGINT SIGTERM EXIT
+    
+    # Frage nur nach Bestätigung, wenn nicht durch EXIT ausgelöst
+    if [ "$1" != "EXIT" ]; then
+        if ui_confirm_exit "$LANG_EXIT_CONFIRM" "$LANG_YES" "$LANG_NO"; then
+            log_info "Programm wird auf Benutzeranfrage beendet"
+            cleanup_and_exit
+        else
+            # Stelle den Signal-Handler wieder her
+            setup_signal_handling
+            return 0
+        fi
+    else
+        # Normales Programmende
+        cleanup_and_exit
     fi
-    
-    # Je nach Auswahl das entsprechende Modul laden
-    case $selection in
-        "install")
-            # System-Installation
-            log_info "Starte Installations-Modul..."
-            source "${CORE_DIR}/setup.sh"
-            start_installation
-            ;;
-        "backup")
-            # Backup & Restore
-            log_info "Starte Backup-Modul..."
-            source "${TOOLS_DIR}/backup.sh"
-            start_backup
-            ;;
-        "keys")
-            # Schlüssel-Konfiguration
-            log_info "Starte Schlüsselkonfiguration..."
-            source "${TOOLS_DIR}/usb_creator.sh"
-            start_key_config
-            ;;
-    esac
+}
+
+# Aufräumen und Beenden
+cleanup_and_exit() {
+    log_info "Bereinige und beende Programm"
+    ui_cleanup
+    exit 0
 }
 
 # Hauptfunktion zum Starten des Tools
 start_lunitool() {
+    # Initialisiere Logging
+    init_log
+    log_info "Starte lunitool v0.1.0"
+    
+    # Überprüfe Root-Rechte
+    if ! check_root; then
+        log_warn "Einige Funktionen könnten ohne Root-Rechte eingeschränkt sein"
+    fi
+    
+    # Sammle Systeminformationen
+    collect_system_info
+    
     # UI initialisieren
-    ui_init
+    if ! ui_init; then
+        log_error "UI-Initialisierung fehlgeschlagen"
+        echo "Fehler: Konnte UI nicht initialisieren. Prüfe, ob 'dialog' installiert ist."
+        exit 1
+    fi
+    
+    # Signalbehandlung einrichten
+    setup_signal_handling
     
     # Sprachdatei laden
     load_language
-    
-    # ESC-Taste abfangen
-    trap 'if ui_confirm_exit "$LANG_EXIT_CONFIRM" "$LANG_YES" "$LANG_NO"; then ui_cleanup; exit 0; fi' SIGINT SIGTERM
     
     # Grundeinstellungen
     select_language
@@ -132,8 +216,8 @@ start_lunitool() {
     # Hauptmenü anzeigen
     main_menu
     
-    # Bereinigen und beenden
-    ui_cleanup
+    # Bereinigen und beenden (wird normalerweise nicht erreicht)
+    cleanup_and_exit
 }
 
 # Starte das Programm
