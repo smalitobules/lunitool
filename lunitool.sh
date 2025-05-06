@@ -85,11 +85,11 @@ select_keyboard() {
 
 # Hauptmenü
 main_menu() {
-    # Optionen für das Hauptmenü
+    # Optionen für das Hauptmenü - mit besserer Card-Style-Formatierung
     local options=(
-        "install" "\Z4$LANG_INSTALL\Zn - $LANG_INSTALL_DESC" 
-        "backup" "\Z4$LANG_BACKUP\Zn - $LANG_BACKUP_DESC" 
-        "keys" "\Z4$LANG_KEYS\Zn - $LANG_KEYS_DESC"
+        "install" "ON" "\Z4System-Installation\Zn\nNeues Linux-System einrichten" 
+        "backup" "OFF" "\Z4Backup & Restore\Zn\nSichern und wiederherstellen" 
+        "keys" "OFF" "\Z4Schlüssel-Konfiguration\Zn\nBoot-USB und Authentifizierung"
     )
     
     local running=true
@@ -117,7 +117,7 @@ main_menu() {
                     source "${CORE_DIR}/setup.sh"
                     start_installation
                 else
-                    ui_show_warning "$LANG_WARNING" "$LANG_MODULE_NOT_FOUND: setup.sh"
+                    ui_show_message "Information" "Das Installations-Modul ist noch nicht verfügbar.\n\nEs wird in einer zukünftigen Version implementiert."
                 fi
                 ;;
             "backup")
@@ -127,7 +127,7 @@ main_menu() {
                     source "${TOOLS_DIR}/backup.sh"
                     start_backup
                 else
-                    ui_show_warning "$LANG_WARNING" "$LANG_MODULE_NOT_FOUND: backup.sh"
+                    ui_show_message "Information" "Das Backup-Modul ist noch nicht verfügbar.\n\nEs wird in einer zukünftigen Version implementiert."
                 fi
                 ;;
             "keys")
@@ -137,13 +137,13 @@ main_menu() {
                     source "${TOOLS_DIR}/usb_creator.sh"
                     start_key_config
                 else
-                    ui_show_warning "$LANG_WARNING" "$LANG_MODULE_NOT_FOUND: usb_creator.sh"
+                    ui_show_message "Information" "Das USB-Schlüssel-Modul ist noch nicht verfügbar.\n\nEs wird in einer zukünftigen Version implementiert."
                 fi
                 ;;
             *)
                 # Unbekannte Auswahl
                 log_error "Unbekannte Hauptmenü-Auswahl: $selection"
-                ui_show_error "$LANG_ERROR" "$LANG_INVALID_SELECTION"
+                ui_show_message "Fehler" "Ungültige Auswahl"
                 ;;
         esac
     done
