@@ -13,14 +13,35 @@ if ! type log_info >/dev/null 2>&1; then
     source "${LUNITOOL_DIR}/core/common.sh"
 fi
 
+# Prozentuale Dialog-Konfiguration
+get_dialog_dimensions() {
+    local term_width=$(tput cols)
+    local term_height=$(tput lines)
+    
+    # Prozentuale Berechnung mit Minimalwerten
+    DIALOG_WIDTH=$(( term_width * 90 / 100 ))
+    DIALOG_HEIGHT=$(( term_height * 80 / 100 ))
+    
+    # Minimalwerte setzen
+    [ "$DIALOG_WIDTH" -lt 80 ] && DIALOG_WIDTH=80
+    [ "$DIALOG_HEIGHT" -lt 25 ] && DIALOG_HEIGHT=25
+    
+    # Maximale Werte
+    [ "$DIALOG_WIDTH" -gt 120 ] && DIALOG_WIDTH=120
+    [ "$DIALOG_HEIGHT" -gt 40 ] && DIALOG_HEIGHT=40
+    
+    # Menu-Höhe berechnen (60% der Dialog-Höhe)
+    MENU_HEIGHT=$(( DIALOG_HEIGHT * 60 / 100 ))
+}
+
 # Dialog-Konfiguration
 DIALOG_BACKTITLE="LUNITOOL"
-DIALOG_HEIGHT=20
-DIALOG_WIDTH=65
+get_dialog_dimensions
 
-# Dialog-Farben und Stil
-DIALOG_COLORS="--colors"
-DIALOG_STYLE="--cr-wrap"
+# Dialog-Optionen und Stil
+DIALOG_COMMON_OPTS="--colors --no-shadow --begin 2 2"
+DIALOG_BUTTON_OK="--ok-label \"Auswählen\""
+DIALOG_BUTTON_CANCEL="--cancel-label \"Zurück\""
 
 ########################
 # UI-Initialisierung   #
@@ -53,47 +74,58 @@ ui_init() {
         mkdir -p "${CONFIG_DIR}"
         cat > "$dialogrc" << EOL
 # Dialog-Konfigurationsdatei für lunitool
-# Hintergrund: Schwarz, Auswahl: Grün, Text: Weiß/Grau
+# Dunkles Hintergrundthema mit Grün als Akzentfarbe
 
 # Bildschirm
 screen_color = (BLACK,BLACK,OFF)
-shadow_color = (BLACK,BLACK,OFF)
 dialog_color = (WHITE,BLACK,OFF)
 title_color = (GREEN,BLACK,ON)
 border_color = (WHITE,BLACK,OFF)
-button_active_color = (WHITE,GREEN,ON)
+shadow_color = (BLACK,BLACK,OFF)
+
+# Buttons und Menü
+button_active_color = (BLACK,GREEN,ON)
 button_inactive_color = (WHITE,BLACK,OFF)
-button_key_active_color = (WHITE,GREEN,ON)
+button_key_active_color = (BLACK,GREEN,ON)
 button_key_inactive_color = (RED,BLACK,OFF)
-button_label_active_color = (WHITE,GREEN,ON)
+button_label_active_color = (BLACK,GREEN,ON)
 button_label_inactive_color = (WHITE,BLACK,ON)
+
+# Menüelemente
+menubox_color = (WHITE,BLACK,OFF)
+menubox_border_color = (WHITE,BLACK,OFF)
+item_color = (WHITE,BLACK,OFF)
+item_selected_color = (BLACK,GREEN,ON)
+tag_color = (GREEN,BLACK,ON)
+tag_selected_color = (BLACK,GREEN,ON)
+tag_key_color = (GREEN,BLACK,ON)
+tag_key_selected_color = (BLACK,GREEN,ON)
+
+# Formulare und Eingabe
 inputbox_color = (BLACK,WHITE,OFF)
 inputbox_border_color = (BLACK,WHITE,OFF)
 searchbox_color = (BLACK,WHITE,OFF)
 searchbox_title_color = (BLUE,WHITE,ON)
 searchbox_border_color = (WHITE,WHITE,OFF)
 position_indicator_color = (BLUE,WHITE,ON)
-menubox_color = (WHITE,BLACK,OFF)
-menubox_border_color = (WHITE,BLACK,OFF)
-item_color = (WHITE,BLACK,OFF)
-item_selected_color = (WHITE,GREEN,ON)
-tag_color = (YELLOW,BLACK,ON)
-tag_selected_color = (YELLOW,GREEN,ON)
-tag_key_color = (RED,BLACK,OFF)
-tag_key_selected_color = (RED,GREEN,ON)
-check_color = (WHITE,BLACK,OFF)
-check_selected_color = (WHITE,GREEN,ON)
-uarrow_color = (GREEN,BLACK,ON)
-darrow_color = (GREEN,BLACK,ON)
-itemhelp_color = (WHITE,BLACK,OFF)
 form_active_text_color = (WHITE,BLUE,ON)
 form_text_color = (WHITE,CYAN,ON)
 form_item_readonly_color = (CYAN,WHITE,ON)
+
+# Navigation
+check_color = (WHITE,BLACK,OFF)
+check_selected_color = (BLACK,GREEN,ON)
+uarrow_color = (GREEN,BLACK,ON)
+darrow_color = (GREEN,BLACK,ON)
+itemhelp_color = (WHITE,BLACK,OFF)
 EOL
     fi
     
     # Dialog-Konfiguration anwenden
     export DIALOGRC="$dialogrc"
+    
+    # Dialog-Optionen export
+    export DIALOG_OPTS="$DIALOG_COMMON_OPTS"
     
     log_info "UI-System initialisiert"
     return 0
@@ -110,42 +142,71 @@ ui_show_menu() {
     local options=("$@")
     
     log_debug "Zeige Menü: $title"
+    get_dialog_dimensions
     
     # Dialog anzeigen und Ergebnis speichern
     local selection=$(dialog --clear --backtitle "$DIALOG_BACKTITLE" \
                             --title "$title" \
                             --ok-label "Auswählen" --cancel-label "Zurück" \
-                            $DIALOG_COLORS $DIALOG_STYLE \
-                            --menu "$title" $DIALOG_HEIGHT $DIALOG_WIDTH 10 \
+                            --cr-wrap --center \
+                            --menu "" $DIALOG_HEIGHT $DIALOG_WIDTH $MENU_HEIGHT \
                             "${options[@]}" \
                             2>&1 >/dev/tty)
     
     local ret=$?
     log_debug "Menü-Auswahl: $selection (Return: $ret)"
     
+    # ESC-Taste abfangen
+    if [ $ret -eq 255 ]; then
+        # ESC wurde gedrückt - Beenden-Dialog anzeigen
+        if ui_confirm_exit "Möchtest du das Programm beenden?" "Ja" "Nein"; then
+            clear
+            exit 0
+        else
+            # Zurück zum Menü
+            ui_show_menu "$title" "${options[@]}"
+            return $?
+        fi
+    fi
+    
     echo "$selection"
     return $ret
 }
 
-# Hauptmenü mit spezieller Formatierung
+# Hauptmenü mit spezieller Formatierung (Card-Style)
 ui_show_main_menu() {
     local title="$1"
     shift
     local options=("$@")
     
-    log_debug "Zeige Hauptmenü"
+    log_debug "Zeige Hauptmenü: $title"
+    get_dialog_dimensions
     
-    # Dialog anzeigen und Ergebnis speichern
+    # Erstelle ein kombiniertes Menü mit radiolist zur besseren Darstellung
+    # Die Radiobuttons simulieren die Karten des TUI
     local selection=$(dialog --clear --backtitle "$DIALOG_BACKTITLE" \
                             --title "$title" \
                             --ok-label "Auswählen" --cancel-label "Zurück" \
-                            $DIALOG_COLORS $DIALOG_STYLE \
-                            --menu "$title" $DIALOG_HEIGHT $DIALOG_WIDTH 10 \
+                            --cr-wrap --center \
+                            --radiolist "$title" $DIALOG_HEIGHT $DIALOG_WIDTH $MENU_HEIGHT \
                             "${options[@]}" \
                             2>&1 >/dev/tty)
     
     local ret=$?
     log_debug "Hauptmenü-Auswahl: $selection (Return: $ret)"
+    
+    # ESC-Taste abfangen
+    if [ $ret -eq 255 ]; then
+        # ESC wurde gedrückt - Beenden-Dialog anzeigen
+        if ui_confirm_exit "Möchtest du das Programm beenden?" "Ja" "Nein"; then
+            clear
+            exit 0
+        else
+            # Zurück zum Menü
+            ui_show_main_menu "$title" "${options[@]}"
+            return $?
+        fi
+    fi
     
     echo "$selection"
     return $ret
@@ -158,12 +219,17 @@ ui_confirm_exit() {
     local no_label="$3"
     
     log_debug "Zeige Beenden-Bestätigung"
+    get_dialog_dimensions
+    
+    # Box-Größe anpassen
+    local box_width=$(( DIALOG_WIDTH / 2 ))
+    local box_height=$(( DIALOG_HEIGHT / 4 ))
     
     dialog --clear --backtitle "$DIALOG_BACKTITLE" \
            --title "$message" \
            --yes-label "$yes_label" --no-label "$no_label" \
-           $DIALOG_COLORS $DIALOG_STYLE \
-           --yesno "$message" 7 50 \
+           --cr-wrap --center \
+           --yesno "" $box_height $box_width \
            2>&1 >/dev/tty
            
     local ret=$?
@@ -182,11 +248,13 @@ ui_show_message() {
     local message="$2"
     
     log_debug "Zeige Meldung: $title"
+    get_dialog_dimensions
     
     dialog --clear --backtitle "$DIALOG_BACKTITLE" \
            --title "$title" \
-           $DIALOG_COLORS $DIALOG_STYLE \
-           --msgbox "$message" 10 60 \
+           --ok-label "OK" \
+           --cr-wrap --center \
+           --msgbox "$message" $(( DIALOG_HEIGHT / 2 )) $(( DIALOG_WIDTH / 2 )) \
            2>&1 >/dev/tty
 }
 
@@ -196,12 +264,14 @@ ui_show_warning() {
     local message="$2"
     
     log_debug "Zeige Warnung: $title"
+    get_dialog_dimensions
     
     dialog --clear --backtitle "$DIALOG_BACKTITLE" \
            --title "$title" \
-           $DIALOG_COLORS $DIALOG_STYLE \
+           --ok-label "OK" \
+           --cr-wrap --center \
            --colors \
-           --msgbox "\Z1[WARNUNG]\Zn $message" 10 60 \
+           --msgbox "\Z1[Hinweis]\Zn\n\n$message" $(( DIALOG_HEIGHT / 2 )) $(( DIALOG_WIDTH / 2 )) \
            2>&1 >/dev/tty
 }
 
@@ -211,12 +281,14 @@ ui_show_error() {
     local message="$2"
     
     log_error "UI-Fehler: $message"
+    get_dialog_dimensions
     
     dialog --clear --backtitle "$DIALOG_BACKTITLE" \
            --title "$title" \
-           $DIALOG_COLORS $DIALOG_STYLE \
+           --ok-label "OK" \
+           --cr-wrap --center \
            --colors \
-           --msgbox "\Z1[FEHLER]\Zn $message" 10 60 \
+           --msgbox "\Z1[Fehler]\Zn\n\n$message" $(( DIALOG_HEIGHT / 2 )) $(( DIALOG_WIDTH / 2 )) \
            2>&1 >/dev/tty
 }
 
@@ -226,174 +298,13 @@ ui_show_progress() {
     local message="$2"
     local percent="$3"
     
+    get_dialog_dimensions
+    
     echo "$percent" | dialog --clear --backtitle "$DIALOG_BACKTITLE" \
                             --title "$title" \
-                            $DIALOG_COLORS $DIALOG_STYLE \
-                            --gauge "$message" 10 70 0 \
+                            --cr-wrap --center \
+                            --gauge "$message" $(( DIALOG_HEIGHT / 2 )) $(( DIALOG_WIDTH * 70 / 100 )) 0 \
                             2>&1 >/dev/tty
-}
-
-# Eingabefeld anzeigen
-ui_get_input() {
-    local title="$1"
-    local message="$2"
-    local default="$3"
-    
-    log_debug "Zeige Eingabefeld: $title"
-    
-    local input=$(dialog --clear --backtitle "$DIALOG_BACKTITLE" \
-                        --title "$title" \
-                        $DIALOG_COLORS $DIALOG_STYLE \
-                        --inputbox "$message" 10 60 "$default" \
-                        2>&1 >/dev/tty)
-    
-    local ret=$?
-    log_debug "Eingabe: $input (Return: $ret)"
-    
-    echo "$input"
-    return $ret
-}
-
-# Passwort-Eingabefeld anzeigen
-ui_get_password() {
-    local title="$1"
-    local message="$2"
-    
-    log_debug "Zeige Passwort-Eingabefeld: $title"
-    
-    local password=$(dialog --clear --backtitle "$DIALOG_BACKTITLE" \
-                          --title "$title" \
-                          $DIALOG_COLORS $DIALOG_STYLE \
-                          --passwordbox "$message" 10 60 \
-                          2>&1 >/dev/tty)
-    
-    local ret=$?
-    log_debug "Passwort eingegeben (Return: $ret)"
-    
-    echo "$password"
-    return $ret
-}
-
-# Checkliste anzeigen
-ui_show_checklist() {
-    local title="$1"
-    local message="$2"
-    shift 2
-    local options=("$@")
-    
-    log_debug "Zeige Checkliste: $title"
-    
-    local selections=$(dialog --clear --backtitle "$DIALOG_BACKTITLE" \
-                             --title "$title" \
-                             $DIALOG_COLORS $DIALOG_STYLE \
-                             --checklist "$message" 20 70 10 \
-                             "${options[@]}" \
-                             2>&1 >/dev/tty)
-    
-    local ret=$?
-    log_debug "Checklisten-Auswahl: $selections (Return: $ret)"
-    
-    echo "$selections"
-    return $ret
-}
-
-# Dateiauswahl anzeigen
-ui_select_file() {
-    local title="$1"
-    local path="${2:-$HOME}"
-    
-    log_debug "Zeige Dateiauswahl: $title (Pfad: $path)"
-    
-    local file=$(dialog --clear --backtitle "$DIALOG_BACKTITLE" \
-                      --title "$title" \
-                      $DIALOG_COLORS $DIALOG_STYLE \
-                      --fselect "$path/" 14 70 \
-                      2>&1 >/dev/tty)
-    
-    local ret=$?
-    log_debug "Dateiauswahl: $file (Return: $ret)"
-    
-    echo "$file"
-    return $ret
-}
-
-# Kalender anzeigen
-ui_select_date() {
-    local title="$1"
-    local date_format="${2:-%Y-%m-%d}"
-    local default_date="${3:-$(date +%Y-%m-%d)}"
-    
-    log_debug "Zeige Kalender: $title"
-    
-    local selected_date=$(dialog --clear --backtitle "$DIALOG_BACKTITLE" \
-                               --title "$title" \
-                               $DIALOG_COLORS $DIALOG_STYLE \
-                               --calendar "Wähle ein Datum:" 0 0 \
-                               "$(echo "$default_date" | cut -d'-' -f3)" \
-                               "$(echo "$default_date" | cut -d'-' -f2)" \
-                               "$(echo "$default_date" | cut -d'-' -f1)" \
-                               2>&1 >/dev/tty)
-    
-    local ret=$?
-    log_debug "Datumswahl: $selected_date (Return: $ret)"
-    
-    # Formatieren des Datums
-    if [ $ret -eq 0 ]; then
-        selected_date=$(date -d "$(echo $selected_date | sed 's/\//\-/g')" +"$date_format" 2>/dev/null)
-    fi
-    
-    echo "$selected_date"
-    return $ret
-}
-
-# Text-Editor anzeigen
-ui_text_editor() {
-    local title="$1"
-    local file="$2"
-    
-    log_debug "Zeige Text-Editor: $title (Datei: $file)"
-    
-    dialog --clear --backtitle "$DIALOG_BACKTITLE" \
-           --title "$title" \
-           $DIALOG_COLORS $DIALOG_STYLE \
-           --editbox "$file" 20 80 \
-           2>/tmp/dialog_edit_$$.tmp >/dev/tty
-    
-    local ret=$?
-    
-    if [ $ret -eq 0 ]; then
-        cat /tmp/dialog_edit_$$.tmp > "$file"
-        log_debug "Text-Editor: Änderungen gespeichert"
-    else
-        log_debug "Text-Editor: Abgebrochen"
-    fi
-    
-    rm -f /tmp/dialog_edit_$$.tmp
-    return $ret
-}
-
-# Info-Box anzeigen (ohne Bestätigung)
-ui_show_info() {
-    local title="$1"
-    local message="$2"
-    local timeout="${3:-0}"  # 0 = kein Timeout
-    
-    log_debug "Zeige Info-Box: $title (Timeout: $timeout)"
-    
-    if [ "$timeout" -gt 0 ]; then
-        dialog --clear --backtitle "$DIALOG_BACKTITLE" \
-               --title "$title" \
-               $DIALOG_COLORS $DIALOG_STYLE \
-               --timeout "$timeout" \
-               --infobox "$message" 8 60 \
-               2>&1 >/dev/tty
-    else
-        dialog --clear --backtitle "$DIALOG_BACKTITLE" \
-               --title "$title" \
-               $DIALOG_COLORS $DIALOG_STYLE \
-               --infobox "$message" 8 60 \
-               2>&1 >/dev/tty
-    fi
 }
 
 # Bereinigen bei Programmende
@@ -408,6 +319,5 @@ export -f ui_show_main_menu
 export -f ui_show_message
 export -f ui_show_warning
 export -f ui_show_error
-export -f ui_get_input
 export -f ui_show_progress
 export -f ui_confirm_exit
