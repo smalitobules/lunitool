@@ -162,7 +162,7 @@ impl<B: Backend + std::io::Write> App<B> {
                             } else {
                                 log::info!("Language changed to: {}", lang_clone);
                                 
-                                // Now we need to update the menu items with the new language
+                                // Update the menu items with the new language
                                 let menu_items = vec![
                                     MenuItem {
                                         id: "install".to_string(),
@@ -184,6 +184,13 @@ impl<B: Backend + std::io::Write> App<B> {
                                     },
                                 ];
                                 self.ui_state.menu_items = menu_items;
+                                
+                                // Passe die Tastaturlayouts basierend auf der Sprache an
+                                if lang_clone == "en" {
+                                    self.ui_state.keyboards = vec!["us".to_string(), "de".to_string()];
+                                } else {
+                                    self.ui_state.keyboards = vec!["de".to_string(), "us".to_string()];
+                                }
                                 
                                 // Reset selected index for keyboard selection
                                 self.ui_state.selected_index = 0;

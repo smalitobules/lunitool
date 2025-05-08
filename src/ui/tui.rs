@@ -144,29 +144,36 @@ pub fn draw_ui<B: Backend>(f: &mut Frame<B>, state: &UiState) {
     // Render a full-screen clear to eliminate potential artifacts
     f.render_widget(Clear, f.size());
     
-    // Create the base layout with appropriate padding
+    // Hauptrahmen für die gesamte Anwendung (fett)
+    let app_block = Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD));
+    f.render_widget(app_block, f.size());
+    
+    // Erstelle das Basis-Layout mit angemessenem Padding innerhalb des Hauptrahmens
     let main_layout = Layout::default()
         .direction(Direction::Vertical)
-        .margin(2)  // Add margin to the whole layout
+        .margin(2)  // Füge Margin zum gesamten Layout hinzu
         .constraints([
-            Constraint::Length(3),  // Title
-            Constraint::Min(1),     // Content
-            Constraint::Length(3),  // Status bar
+            Constraint::Length(3),  // Titel
+            Constraint::Min(1),     // Inhalt
+            Constraint::Length(3),  // Statusleiste
         ])
         .split(f.size());
 
-    // Draw title with proper styling
+    // Zeichne Titel mit passenden Styling
     let title = Paragraph::new(Spans::from(vec![
         Span::styled(get_text("LANG_TITLE"), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
         Span::raw(" - "),
         Span::styled(get_text("LANG_SUBTITLE"), Style::default().fg(Color::White)),
     ]))
-    .alignment(Alignment::Center)  // Center the title
+    .alignment(Alignment::Center)  // Zentriere den Titel
     .block(Block::default().borders(Borders::BOTTOM));
     
     f.render_widget(title, main_layout[0]);
 
-    // Draw content based on current screen
+    // Zeichne Inhalt basierend auf dem aktuellen Bildschirm
     match state.current_screen {
         Screen::MainMenu => draw_main_menu(f, state, main_layout[1]),
         Screen::LanguageSelect => draw_language_select(f, state, main_layout[1]),
@@ -175,30 +182,29 @@ pub fn draw_ui<B: Backend>(f: &mut Frame<B>, state: &UiState) {
         Screen::ConfirmExit => draw_confirm_exit(f, state, main_layout[1]),
     }
 
-    // Draw status bar
+    // Zeichne Statusleiste
     let navigation_help = Paragraph::new(get_text("LANG_NAVIGATION"))
-        .alignment(Alignment::Center)  // Center the navigation text
+        .alignment(Alignment::Center)  // Zentriere den Navigationstext
         .style(Style::default().fg(Color::Gray));
     f.render_widget(navigation_help, main_layout[2]);
 }
 
 /// Draw the main menu with card design
 fn draw_main_menu<B: Backend>(f: &mut Frame<B>, state: &UiState, area: Rect) {
-    // Calculate a centered area for the menu items - make it square-ish
-    let square_size = area.height.min(area.width);
-    let menu_height = (square_size as f32 * 0.8) as u16;
-    let menu_width = (square_size as f32 * 0.9) as u16;
+    // Berechne einen zentrierten Bereich für die Menüpunkte - mache ihn quadratisch
+    let menu_width = area.width.min(area.height) * 2 / 3;
+    let menu_height = menu_width * 2 / 3;
     
     let menu_area = centered_rect_exact(menu_width, menu_height, area);
     
-    // Create an outer border for the menu area
+    // Äußere Box für den Menübereich
     let outer_block = Block::default()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
         .border_style(Style::default().fg(Color::Gray));
     f.render_widget(outer_block, menu_area);
     
-    // Create an inner area inside the outer border with padding
+    // Innerer Bereich innerhalb der äußeren Box mit Padding
     let inner_area = Rect {
         x: menu_area.x + 2,
         y: menu_area.y + 2,
@@ -206,10 +212,10 @@ fn draw_main_menu<B: Backend>(f: &mut Frame<B>, state: &UiState, area: Rect) {
         height: menu_area.height - 4,
     };
     
-    // Create a grid layout for the menu cards
+    // Raster-Layout für die Menükarten
     let menu_layout = Layout::default()
         .direction(Direction::Horizontal)
-        .margin(1)  // Add margin between cards
+        .margin(1)  // Füge Abstand zwischen den Karten hinzu
         .constraints([
             Constraint::Percentage(33),
             Constraint::Percentage(33),
@@ -217,20 +223,22 @@ fn draw_main_menu<B: Backend>(f: &mut Frame<B>, state: &UiState, area: Rect) {
         ])
         .split(inner_area);
     
-    // Render each menu card
+    // Rendere jede Menükarte
     for (i, item) in state.menu_items.iter().enumerate() {
         if i < menu_layout.len() {
-            // Create card area with fixed height to make it more square
-            let card_height = inner_area.height.min(menu_layout[i].width); // Makes it square-ish
+            // Kartenbereich mit fixer Höhe, um ihn quadratischer zu machen
+            let card_width = menu_layout[i].width;
+            let card_height = card_width; // Macht es quadratisch
             
+            // Karte zentrieren
             let card_area = Rect {
                 x: menu_layout[i].x,
-                y: menu_layout[i].y,
-                width: menu_layout[i].width,
+                y: menu_layout[i].y + (menu_layout[i].height.saturating_sub(card_height)) / 2,
+                width: card_width,
                 height: card_height,
             };
             
-            // Select the appropriate style based on selection
+            // Wähle passenden Stil basierend auf der Auswahl
             let border_style = if i == state.selected_index {
                 Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
             } else {
@@ -243,7 +251,7 @@ fn draw_main_menu<B: Backend>(f: &mut Frame<B>, state: &UiState, area: Rect) {
                 Style::default().fg(Color::White)
             };
             
-            // Create a block with a rounded border
+            // Block mit abgerundetem Rand
             let block = Block::default()
                 .title(Span::styled(format!("  {}  ", item.title), Style::default().add_modifier(Modifier::BOLD)))
                 .title_alignment(Alignment::Center)
@@ -251,10 +259,10 @@ fn draw_main_menu<B: Backend>(f: &mut Frame<B>, state: &UiState, area: Rect) {
                 .border_type(BorderType::Rounded)
                 .border_style(border_style);
             
-            // Render the card block
+            // Rendere den Kartenblock
             f.render_widget(block, card_area);
             
-            // Calculate the description area inside the card
+            // Beschreibungsbereich innerhalb der Karte
             let description_area = Rect {
                 x: card_area.x + 2,
                 y: card_area.y + 2,
@@ -262,7 +270,7 @@ fn draw_main_menu<B: Backend>(f: &mut Frame<B>, state: &UiState, area: Rect) {
                 height: card_area.height - 4,
             };
             
-            // Render the description
+            // Rendere die Beschreibung
             let description = Paragraph::new(item.description.clone())
                 .alignment(Alignment::Center)
                 .style(text_style)
@@ -291,7 +299,7 @@ fn draw_language_select<B: Backend>(f: &mut Frame<B>, state: &UiState, area: Rec
         })
         .collect();
 
-    // Create a centered area for the language selection
+    // Zentrierter Bereich für die Sprachauswahl
     let lang_area = centered_rect(60, 40, area);
     
     let menu = List::new(items)
@@ -324,7 +332,7 @@ fn draw_keyboard_select<B: Backend>(f: &mut Frame<B>, state: &UiState, area: Rec
         })
         .collect();
 
-    // Create a centered area for the keyboard selection
+    // Zentrierter Bereich für die Tastaturauswahl
     let kb_area = centered_rect(60, 40, area);
 
     let menu = List::new(items)
@@ -342,10 +350,10 @@ fn draw_keyboard_select<B: Backend>(f: &mut Frame<B>, state: &UiState, area: Rec
 /// Draw a message dialog
 fn draw_message<B: Backend>(f: &mut Frame<B>, state: &UiState, area: Rect) {
     if let Some((title, content)) = &state.message {
-        // Create a centered box for the message
+        // Zentrierter Bereich für die Nachricht
         let message_area = centered_rect(60, 40, area);
         
-        // Render a clear background to make the dialog stand out
+        // Rendere einen klaren Hintergrund, um den Dialog hervorzuheben
         f.render_widget(Clear, message_area);
         
         let message = Paragraph::new(content.as_str())
@@ -355,7 +363,7 @@ fn draw_message<B: Backend>(f: &mut Frame<B>, state: &UiState, area: Rect) {
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
                 .border_style(Style::default().fg(Color::White)))
-            .alignment(Alignment::Center)
+            .alignment(Alignment::Center)  // Text wird zentriert
             .wrap(tui::widgets::Wrap { trim: true });
         
         f.render_widget(message, message_area);
@@ -364,13 +372,13 @@ fn draw_message<B: Backend>(f: &mut Frame<B>, state: &UiState, area: Rect) {
 
 /// Draw the exit confirmation dialog
 fn draw_confirm_exit<B: Backend>(f: &mut Frame<B>, state: &UiState, area: Rect) {
-    // Create a centered box for the dialog with proper padding
+    // Zentrierter Bereich für den Dialog mit Padding
     let dialog_area = centered_rect(50, 30, area);
     
-    // Render a clear background to make the dialog stand out
+    // Rendere einen klaren Hintergrund, um den Dialog hervorzuheben
     f.render_widget(Clear, dialog_area);
     
-    // Create a block with rounded borders
+    // Erstelle einen Block mit abgerundeten Rändern
     let block = Block::default()
         .title("Confirm")
         .title_alignment(Alignment::Center)
@@ -380,7 +388,7 @@ fn draw_confirm_exit<B: Backend>(f: &mut Frame<B>, state: &UiState, area: Rect) 
     
     f.render_widget(block, dialog_area);
     
-    // Create layout for the dialog content with padding
+    // Layout für den Dialog-Inhalt mit Padding
     let inner_area = Rect {
         x: dialog_area.x + 2,
         y: dialog_area.y + 2,
@@ -391,27 +399,27 @@ fn draw_confirm_exit<B: Backend>(f: &mut Frame<B>, state: &UiState, area: Rect) 
     let dialog_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Min(1), // Message
-            Constraint::Length(1), // Buttons
-            Constraint::Length(1), // Extra padding
+            Constraint::Min(1), // Nachricht
+            Constraint::Length(1), // Schaltflächen
+            Constraint::Length(1), // Extra Padding
         ])
         .split(inner_area);
     
-    // Render the message
+    // Rendere die Nachricht
     let message = Paragraph::new(get_text("LANG_EXIT_CONFIRM"))
         .alignment(Alignment::Center)
         .style(Style::default().fg(Color::White));
     f.render_widget(message, dialog_layout[0]);
     
-    // Determine the correct Yes/No text based on the current language
+    // Bestimme den korrekten Ja/Nein-Text basierend auf der aktuellen Sprache
     let yes_text = get_text("LANG_YES");
     let no_text = get_text("LANG_NO");
     
-    // Determine yes/no key hints based on language
+    // Bestimme Ja/Nein-Tastenhinweise basierend auf Sprache
     let yes_key = if yes_text == "Ja" { "j" } else { "y" };
     let no_key = if no_text == "Nein" { "n" } else { "n" };
     
-    // Highlight the appropriate button based on selection
+    // Hebe die entsprechende Schaltfläche basierend auf Auswahl hervor
     let yes_style = if state.selected_index == 0 {
         Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
     } else {
@@ -424,7 +432,7 @@ fn draw_confirm_exit<B: Backend>(f: &mut Frame<B>, state: &UiState, area: Rect) 
         Style::default().fg(Color::White)
     };
     
-    // Create the buttons text
+    // Erstelle den Text für die Schaltflächen
     let buttons = Paragraph::new(Spans::from(vec![
         Span::styled(format!("{} ({})", yes_text, yes_key), yes_style),
         Span::raw("    "),
