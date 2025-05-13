@@ -55,7 +55,7 @@ pub fn generate_gpg_key(name: &str, email: &str) -> Result<()> {
 }
 
 /// Create a bootable USB with LUKS encryption
-pub fn create_encrypted_usb(device: &str, _passphrase: &str) -> Result<()> {
+pub fn create_encrypted_usb(device: &str) -> Result<()> {
     log::info!("Creating encrypted USB on {}", device);
     
     if cfg!(unix) {

@@ -1,0 +1,12 @@
+/mnt/d/Users/Gamer/Dokumente/GitHub/lunitool/target/release/deps/libfern-11a2266b2496738f.rmeta: /home/spicy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fern-0.6.2/src/lib.rs /home/spicy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fern-0.6.2/src/builders.rs /home/spicy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fern-0.6.2/src/errors.rs /home/spicy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fern-0.6.2/src/log_impl.rs /home/spicy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fern-0.6.2/src/colors.rs /home/spicy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fern-0.6.2/src/meta.rs
+
+/mnt/d/Users/Gamer/Dokumente/GitHub/lunitool/target/release/deps/libfern-11a2266b2496738f.rlib: /home/spicy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fern-0.6.2/src/lib.rs /home/spicy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fern-0.6.2/src/builders.rs /home/spicy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fern-0.6.2/src/errors.rs /home/spicy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fern-0.6.2/src/log_impl.rs /home/spicy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fern-0.6.2/src/colors.rs /home/spicy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fern-0.6.2/src/meta.rs
+
+/mnt/d/Users/Gamer/Dokumente/GitHub/lunitool/target/release/deps/fern-11a2266b2496738f.d: /home/spicy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fern-0.6.2/src/lib.rs /home/spicy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fern-0.6.2/src/builders.rs /home/spicy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fern-0.6.2/src/errors.rs /home/spicy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fern-0.6.2/src/log_impl.rs /home/spicy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fern-0.6.2/src/colors.rs /home/spicy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fern-0.6.2/src/meta.rs
+
+/home/spicy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fern-0.6.2/src/lib.rs:
+/home/spicy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fern-0.6.2/src/builders.rs:
+/home/spicy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fern-0.6.2/src/errors.rs:
+/home/spicy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fern-0.6.2/src/log_impl.rs:
+/home/spicy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fern-0.6.2/src/colors.rs:
+/home/spicy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fern-0.6.2/src/meta.rs:

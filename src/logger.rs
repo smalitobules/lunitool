@@ -2,11 +2,10 @@ use anyhow::{Context, Result};
 use chrono::Local;
 use fern::colors::{Color, ColoredLevelConfig};
 use log::LevelFilter;
-use std::{fs, io, path::Path};
+use std::{fs, path::Path};
 
 /// Setup the logger
-pub fn setup_logger() -> Result<()> {
-    // Configure colors for log levels
+pub fn setup_logger(log_file_path: &str, debug_mode: bool) -> Result<()> {
     let colors = ColoredLevelConfig::new()
         .error(Color::Red)
         .warn(Color::Yellow)
@@ -14,27 +13,32 @@ pub fn setup_logger() -> Result<()> {
         .debug(Color::Blue)
         .trace(Color::White);
 
-    // Create log directory if it doesn't exist
-    let log_dir = Path::new("/var/log");
-    if !log_dir.exists() {
-        if let Err(e) = fs::create_dir_all(log_dir) {
-            eprintln!("Warning: Could not create log directory: {}", e);
-            // Fallback to temporary directory
-            let tmp_log = Path::new("/tmp/lunitool.log");
-            eprintln!("Using temporary log file: {}", tmp_log.display());
+    let log_path = Path::new(log_file_path);
+
+    // Attempt to create the parent directory for the log file if it doesn't exist
+    if let Some(parent_dir) = log_path.parent() {
+        if !parent_dir.exists() {
+            if let Err(e) = fs::create_dir_all(parent_dir) {
+                // Output to stderr as the logger is not yet initialized
+                eprintln!("Warning: Could not create log directory '{}': {}. Logging to this file might fail.", parent_dir.display(), e);
+            }
         }
     }
 
-    // Determine log file path
-    let log_file = if log_dir.exists() && fs::metadata(log_dir).map(|m| m.permissions().readonly()).unwrap_or(true) == false {
-        log_dir.join("lunitool.log")
+    let base_level = if debug_mode {
+        LevelFilter::Debug
     } else {
-        Path::new("/tmp/lunitool.log").to_path_buf()
+        LevelFilter::Info
     };
 
-    // Setup logger
+    let lunitool_level = if debug_mode {
+        LevelFilter::Trace // Or keep it Debug if Trace is too verbose for lunitool's own logs even in debug_mode
+    } else {
+        LevelFilter::Debug // In non-debug mode, lunitool's specific logs might still be Debug
+    };
+
+
     fern::Dispatch::new()
-        // Format logs
         .format(move |out, message, record| {
             out.finish(format_args!(
                 "[{} {} {}] {}",
@@ -44,18 +48,14 @@ pub fn setup_logger() -> Result<()> {
                 message
             ))
         })
-        // Set log levels
-        .level(LevelFilter::Info)
-        .level_for("lunitool", LevelFilter::Debug)
-        // Output to log file only, NOT to stdout to keep UI clean
-        .chain(fern::log_file(log_file).context("Failed to open log file")?)
-        // Apply configuration
+        .level(base_level) // General log level
+        .level_for("lunitool", lunitool_level) // Specific level for "lunitool" crate/target
+        .chain(fern::log_file(log_path).context(format!("Failed to open log file at: {}", log_file_path))?)
         .apply()
         .context("Failed to initialize logger")?;
 
-    // Log startup message
     log::info!("=== LUNITOOL Log started ===");
-    log::info!("Version: 0.1.0");
+    log::info!("Version: {}", env!("CARGO_PKG_VERSION"));
     if let Ok(user) = std::env::var("USER") {
         log::info!("User: {}", user);
     }

@@ -26,7 +26,6 @@ pub struct SystemInfo {
 pub fn collect_system_info() -> SystemInfo {
     log::info!("Collecting system information...");
     
-    // Initialize system information collector
     let mut sys = System::new_all();
     sys.refresh_all();
     
@@ -91,7 +90,6 @@ fn detect_live_environment() -> bool {
         Path::new("/run/initramfs/live"),
     ];
     
-    // Check if any of these paths exist
     for path in &live_paths {
         if path.exists() {
             return true;

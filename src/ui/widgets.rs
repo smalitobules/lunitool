@@ -1,36 +1,61 @@
 /// Type of menu item
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MenuType {
-    /// Simple text menu item
     Simple,
-    /// Card-style menu item with border
     Card,
 }
 
 /// Menu item
 #[derive(Debug, Clone)]
 pub struct MenuItem {
-    /// Unique identifier
     pub id: String,
-    /// Display title
     pub title: String,
-    /// Description (for card-style menus)
     pub description: String,
-    /// Menu item type
     pub menu_type: MenuType,
 }
 
 /// Different screens in the application
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Screen {
-    /// Main menu
     MainMenu,
-    /// Language selection
     LanguageSelect,
-    /// Keyboard layout selection
     KeyboardSelect,
-    /// Message dialog
+    SystemInstallation,
     Message,
-    /// Exit confirmation
     ConfirmExit,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum DialogType {
+    YesNo {
+        title_key: String,
+        message_key: String,
+    },
+    ThemeSelector,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum DisplayItemType {
+    Disk,
+    Partition,
+    LuksContainer,
+    LuksMappedContent,
+    LvmVolumeGroup,
+    LvmLogicalVolume,
+    LvmPhysicalVolume,
+    VeraCryptContainer,
+    UnallocatedSpace, 
+    FileSystemItem, 
+    Label, 
+    Unknown,
+}
+
+#[derive(Debug, Clone)]
+pub struct DisplayListItem {
+    pub id_path: String,
+    pub display_text: String,
+    pub indent_level: usize,
+    pub item_type: DisplayItemType,
+    pub selectable: bool,
+    pub size_bytes: Option<u64>,
 }

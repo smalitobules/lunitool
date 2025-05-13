@@ -1,67 +1,62 @@
 pub mod system_info;
+pub mod disk_info;
 
-use anyhow::{Context, Result};
-use std::fs;
+pub use system_info::collect_system_info;
 
-use crate::get_lang_dir;
+use anyhow::Result;
 
-/// Load language file
+use crate::config::Config;
+
+/// Load language file (now primarily sets the global locale via lang module)
 pub fn load_language(lang: &str) -> Result<()> {
-    let lang_dir = get_lang_dir();
-    // Erstelle die Sprachdatei, wird für Kompatibilität benötigt
-    let _lang_file = lang_dir.join(format!("{}.ftl", lang));
+    // The logic for lang_dir, creating it, or creating a specific lang_file path
+    // is no longer needed here as languages are embedded and managed by the lang module.
+    
+    // The primary responsibility is to tell the lang module to switch the current language.
+    crate::lang::set_language(lang)?;
 
-    // Create language directory if it doesn't exist
-    if !lang_dir.exists() {
-        fs::create_dir_all(&lang_dir).context("Failed to create language directory")?;
-    }
-
-    // In unserer vereinfachten Version ist das Laden der Datei nicht notwendig,
-    // wir setzen einfach die aktuelle Sprache
-    crate::lang::set_language(lang, "")?;
-
-    log::info!("Language loaded: {}", lang);
+    log::info!("Language set via core::load_language: {}", lang);
     Ok(())
 }
 
-/// Set keyboard layout
+/// Set keyboard layout (Unix-specific)
 pub fn set_keyboard(layout: &str) -> Result<()> {
-    // On Unix-like systems, we could use the "loadkeys" or "setxkbmap" command
-    // Here we just log the attempt and leave actual implementation to the OS-specific code
-    log::info!("Setting keyboard layout to: {}", layout);
-    
-    // This would be the actual implementation on Linux
-    if cfg!(unix) {
+    log::info!("Attempting to set keyboard layout to: {} (Unix-specific)", layout);
+
+    #[cfg(unix)]
+    {
         use std::process::Command;
         
         // Try loadkeys (console)
-        let loadkeys_result = Command::new("loadkeys")
-            .arg(layout)
-            .output();
-            
+        let loadkeys_result = Command::new("loadkeys").arg(layout).output();
         if let Ok(output) = loadkeys_result {
             if output.status.success() {
+                log::info!("Keyboard layout set to '{}' using loadkeys.", layout);
                 return Ok(());
             }
         }
         
         // Try setxkbmap (X11)
-        let setxkbmap_result = Command::new("setxkbmap")
-            .arg(layout)
-            .output();
-            
+        let setxkbmap_result = Command::new("setxkbmap").arg(layout).output();
         if let Ok(output) = setxkbmap_result {
             if output.status.success() {
+                log::info!("Keyboard layout set to '{}' using setxkbmap.", layout);
                 return Ok(());
             }
         }
         
-        // On Windows or if both failed
-        log::warn!("Could not set keyboard layout with system tools");
+        // If both loadkeys and setxkbmap failed on Unix
+        log::warn!("Failed to set keyboard layout '{}' on Unix using system tools (loadkeys, setxkbmap).", layout);
+        return Err(anyhow::anyhow!("Failed to set keyboard layout '{}' on Unix using available system tools.", layout));
     }
-    
-    // We just pretend it worked for now
-    Ok(())
+
+    #[cfg(not(unix))]
+    {
+        // This tool is intended for Unix-like systems only.
+        // Setting keyboard layout is not supported on this platform.
+        log::error!("set_keyboard called on a non-Unix system. This operation is not supported by lunitool.");
+        Err(anyhow::anyhow!("set_keyboard is only supported on Unix-like systems for lunitool."))
+    }
 }
 
 /// Check for root/administrator privileges
@@ -71,15 +66,14 @@ pub fn check_root() -> bool {
         users::get_effective_uid() == 0
     }
     
-    #[cfg(windows)]
-    {
-        // On Windows, we would check for administrator privileges
-        // This is a simplified implementation
-        false
-    }
-    
-    #[cfg(not(any(unix, windows)))]
+    #[cfg(not(unix))]
     {
         false
     }
+}
+
+pub fn initialize_language(config: &Config) -> Result<()> {
+    let lang = config.current_lang.as_str();
+    crate::lang::set_language(lang)?;
+    Ok(())
 }

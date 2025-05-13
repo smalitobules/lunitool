@@ -1,0 +1,7 @@
+current_lang: de
+keyboard: de
+debug_mode: true
+log_file: /mnt/d/Users/Gamer/Dokumente/GitHub/lunitool/lunitool.log
+ui:
+  theme: default
+  auto_size: true

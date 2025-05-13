@@ -6,38 +6,38 @@ use lunitool_lib::{
     logger::setup_logger,
     ui::tui::setup_terminal,
 };
-use std::{io, process};
+use std::{process};
 
 fn main() -> Result<()> {
-    // Setup logger
-    setup_logger().context("Failed to setup logger")?;
-    log::info!("Starting lunitool v0.1.0");
-
-    // Load configuration
+    // Load configuration first to get log path and debug_mode
     let config = Config::load().unwrap_or_else(|err| {
-        log::error!("Failed to load configuration: {}", err);
+        // Cannot use logger here as it's not set up yet.
+        // eprintln is a reasonable fallback for critical config load failure.
+        eprintln!("Error: Failed to load configuration: {}. Exiting.", err);
         process::exit(1);
     });
 
-    // Load language files
+    // Setup logger using details from config
+    setup_logger(&config.log_file, config.debug_mode).context("Failed to setup logger")?;
+    
+    log::info!("Starting lunitool v{}", env!("CARGO_PKG_VERSION"));
+    // Config is already loaded, so no need to log its loading again here, 
+    // but we can log that we are proceeding with the loaded config.
+    log::debug!("Configuration loaded: {:?}", config);
+
     load_language(&config.current_lang).unwrap_or_else(|err| {
         log::error!("Failed to load language files: {}", err);
         process::exit(1);
     });
 
-    // Setup terminal
     let terminal = setup_terminal().context("Failed to setup terminal")?;
 
-    // Create app
     let mut app = App::new(config, terminal);
 
-    // Run app
     let res = app.run();
 
-    // Restore terminal
     app.restore_terminal()?;
 
-    // Handle result from app
     if let Err(err) = res {
         log::error!("Application error: {}", err);
         return Err(err);
