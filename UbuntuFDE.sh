@@ -201,13 +201,13 @@ check_dependencies() {
     # Richte lokalen Spiegelserver ein
     log_info "Importiere GPG-Schlüssel..."
     mkdir -p /etc/apt/trusted.gpg.d/
-    curl -fsSL http://192.168.56.120/repo-key.gpg | gpg --dearmor -o /etc/apt/trusted.gpg.d/local-mirror.gpg
+    curl -fsSL http://192.168.56.112/repo-key.gpg | gpg --dearmor -o /etc/apt/trusted.gpg.d/local-mirror.gpg
 
     log_info "Erstelle Paketquellendatei..."
     mkdir -p /etc/apt/sources.list.d
     cat > /etc/apt/sources.list.d/system.sources << EOF
 Types: deb
-URIs: http://192.168.56.120/ubuntu/
+URIs: http://192.168.56.112/ubuntu/
 Suites: plucky plucky-updates plucky-security plucky-backports
 Components: main restricted universe multiverse
 Signed-By: /etc/apt/trusted.gpg.d/local-mirror.gpg
@@ -216,7 +216,7 @@ EOF
     # Lokalen Spiegelserver priorisieren
     cat > /etc/apt/preferences.d/local-mirror <<EOL
 Package: *
-Pin: origin 192.168.56.120
+Pin: origin 192.168.56.112
 Pin-Priority: 1001
 EOL
 
@@ -1166,7 +1166,7 @@ install_base_system() {
     # GPG-Schlüssel für lokalen Mirror importieren
     log_info "Importiere GPG-Schlüssel für lokalen Mirror..."
     mkdir -p /mnt/ubuntu/etc/apt/trusted.gpg.d/
-    curl -fsSL http://192.168.56.120/repo-key.gpg | gpg --dearmor -o /mnt/ubuntu/etc/apt/trusted.gpg.d/local-mirror.gpg
+    curl -fsSL http://192.168.56.112/repo-key.gpg | gpg --dearmor -o /mnt/ubuntu/etc/apt/trusted.gpg.d/local-mirror.gpg
     
     # Zu inkludierende Pakete definieren
     INCLUDED_PACKAGES=(
@@ -1202,7 +1202,7 @@ install_base_system() {
             --arch=amd64 \
             plucky \
             /mnt/ubuntu \
-            http://192.168.56.120/ubuntu
+            http://192.168.56.112/ubuntu
     else
         debootstrap \
             --include="$INCLUDED_PACKAGELIST" \
@@ -1211,7 +1211,7 @@ install_base_system() {
             --arch=amd64 \
             plucky \
             /mnt/ubuntu \
-            http://192.168.56.120/ubuntu
+            http://192.168.56.112/ubuntu
     fi
     
     if [ $? -ne 0 ]; then
